@@ -1,0 +1,41 @@
+# dsh-artifacts-panel bundle patch: registers the host-side artifacts scan
+# service on the web server. Applied after dsh-web-app's layer; the profile's
+# own cordis.patch.yml and any --patch overlays still come later.
+#
+# The row id is owned by this bundle; a second copy of this bundle in one
+# profile would collide and fail loud (which is correct).
+
+- insert:
+    - id: artifacts-panel
+      name: 'dsh-artifacts-panel'
+      inject: [webServer, workspaceRegistry]
+      config:
+        # 扫描范围：workspace = 仅允许扫描已注册工作区及其子目录（默认，推荐）；
+        # any = 允许扫描宿主机任意目录（面板可通过 URL 参数指定）。
+        scope: workspace
+        # 递归最大深度（0 = 仅当前目录）。
+        maxDepth: 8
+        # 单次扫描最大文件数，超出即停止并标记 limitReached。
+        maxFiles: 5000
+        # 参与行数统计的单个文件大小上限（字节），超过则 lines 为 null。
+        maxLineFileSize: 1048576
+        # 跳过目录（按 basename 匹配，逐层生效）。
+        skipDirs:
+          - node_modules
+          - .git
+          - .svn
+          - .hg
+          - dist
+          - build
+          - .next
+          - .nuxt
+          - .turbo
+          - .cache
+          - __pycache__
+          - .venv
+          - venv
+          - target
+          - coverage
+          - .idea
+          - .vscode
+          - .DS_Store
