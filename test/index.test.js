@@ -72,6 +72,7 @@ test("scanWorkspace returns one metadata row per file", async () => {
 	const result = await scanWorkspace(root, Config({}), []);
 	assert.equal(result.limitReached, false);
 	assert.deepEqual(result.files.map((file) => file.name).sort(), ["a.js", "b.md", "c.json"]);
+	assert.deepEqual(result.dirs, [join(await realpath(root), "sub")]);
 	const byName = Object.fromEntries(result.files.map((file) => [file.name, file]));
 	assert.equal(byName["a.js"].category, "code");
 	assert.equal(byName["a.js"].lines, 2);
@@ -89,6 +90,19 @@ test("scanWorkspace skips configured directories", async () => {
 	await writeFile(join(root, ".git", "config"), "x");
 	const result = await scanWorkspace(root, Config({}), []);
 	assert.deepEqual(result.files.map((file) => file.name), ["keep.txt"]);
+	assert.deepEqual(result.dirs, []);
+});
+
+test("scanWorkspace reports only immediate, non-skipped subdirectories", async () => {
+	await mkdir(join(root, "sub1"));
+	await mkdir(join(root, "sub2"));
+	await mkdir(join(root, "sub2", "deep"));
+	await mkdir(join(root, "node_modules"));
+	await mkdir(join(root, ".git"));
+	await writeFile(join(root, "root.txt"), "x");
+	const result = await scanWorkspace(root, Config({}), []);
+	const base = await realpath(root);
+	assert.deepEqual([...result.dirs].sort(), [join(base, "sub1"), join(base, "sub2")].sort());
 });
 
 test("scanWorkspace enforces maxFiles and flags limitReached", async () => {
