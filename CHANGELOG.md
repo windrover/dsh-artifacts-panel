@@ -3,6 +3,23 @@
 本项目的所有显著变更都会记录在此文件中，格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.4.0] - 2025-08-26
+
+### 新增
+
+- **文件预览抽屉**：点击文件行打开预览视图；宿主新增只读路由 `GET /api/artifacts/read?path=…`，
+  单文件读取受 `maxPreviewBytes`（默认 256 KB）约束，超出截断并标记 `truncated`，二进制文件标记 `binary`
+  不返回内容；预览头部提供「返回列表」与「复制路径」。
+- **Agent 工具 `artifacts_list`**：通过 `tools.register`（`defineTool`）注册，DSH Agent 可直接列出/统计
+  工作区产物。参数：`dir`（默认取会话 cwd）、`pattern`（大小写不敏感过滤）、`maxFiles`（默认 200，受
+  `maxFiles` 配置钳制）；返回 `scanned` / `totalSize` / `byType` / 最大的 50 个文件，遵守同一套 scope 安全规则。
+- **宿主重构**：提取 `canonicalRootsOf` / `assertInsideRoots` / `canonicalDir` 共享 scope 校验，扫描、预览、工具三入口一致。
+
+### 变更
+
+- 面板文件行点击行为：从「复制路径」改为「打开预览抽屉」（复制路径移到预览头部按钮）。
+- 插件 `inject` 新增 `tools` 服务（`cordis.patch.yml` 同步）。
+
 ## [0.3.0] - 2025-08-26
 
 ### 新增
