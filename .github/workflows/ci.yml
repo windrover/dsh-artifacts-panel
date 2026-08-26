@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # Peer dependencies (@deepseek-ai/dsh-client-*, react) are provided by the
+      # DSH host at runtime and are not satisfiable from the registry as declared
+      # (^0.1.0-rc.6 vs published 0.0.1-rc.x), so skip auto peer installation.
+      - run: npm install --legacy-peer-deps
+      - run: npm test
