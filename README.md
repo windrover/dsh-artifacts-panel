@@ -79,7 +79,7 @@ CI（GitHub Actions）会在 push / PR 时自动运行 `npm test`。
 | `maxDepth` | `8` | 递归最大深度 |
 | `maxFiles` | `5000` | 单次扫描最大文件数 |
 | `maxLineFileSize` | `1048576` | 参与行数统计的单文件大小上限（字节） |
-| `maxPreviewBytes` | `262144` | 预览抽屉单文件读取上限（字节），超出截断 |
+| `maxPreviewBytes` | `262144` | 预览抽屉单文件读取上限（字节），超出截断；**图片预览使用更大的 4MiB 上限**（太小的图无法阅读且截断 PNG 常解码失败） |
 | `skipDirs` | 见 patch | 按 basename 跳过的目录 |
 
 在 profile 的 `cordis.patch.yml` 中覆盖：
