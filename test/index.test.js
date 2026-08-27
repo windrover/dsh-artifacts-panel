@@ -433,3 +433,111 @@ test("tool: execute enforces the workspace scope", async () => {
 		await rm(outside, { recursive: true, force: true });
 	}
 });
+
+/* --- media (video) route: streaming + Range --- */
+
+function makeStreamRes() {
+	const calls = [];
+	const chunks = [];
+	const listeners = new Map();
+	let resolveSettled;
+	const settled = new Promise((resolve) => { resolveSettled = resolve; });
+	const res = {
+		calls,
+		chunks,
+		settled,
+		writeHead(status, headers) {
+			calls.push(["head", status, headers]);
+		},
+		write(chunk) {
+			chunks.push(Buffer.from(chunk));
+			return true;
+		},
+		end(payload) {
+			if (payload !== undefined && payload !== null) chunks.push(Buffer.from(payload));
+			calls.push(["end", null]);
+			resolveSettled();
+		},
+		destroy() {
+			calls.push(["destroy"]);
+		},
+		on(ev, cb) {
+			const list = listeners.get(ev) ?? [];
+			list.push(cb);
+			listeners.set(ev, list);
+			return res;
+		},
+		once(ev, cb) {
+			return res.on(ev, cb);
+		},
+		emit(ev, ...args) {
+			for (const cb of listeners.get(ev) ?? []) cb(...args);
+			return true;
+		}
+	};
+	return res;
+}
+
+async function invokeMedia(handler, req) {
+	const res = makeStreamRes();
+	await handler(req, res);
+	await res.settled; // wait for the piped stream to finish
+	const head = res.calls.find(([kind]) => kind === "head");
+	return {
+		status: head === void 0 ? null : head[1],
+		headers: head === void 0 ? {} : head[2],
+		body: Buffer.concat(res.chunks)
+	};
+}
+
+test("route media: 200 full body with video content type", async () => {
+	const handler = registerHarness().routes.get("/api/artifacts/media");
+	const bytes = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+	const file = join(root, "clip.mp4");
+	await writeFile(file, bytes);
+	const { status, headers, body } = await invokeMedia(handler, { method: "GET", url: `/api/artifacts/media?path=${encodeURIComponent(file)}` });
+	assert.equal(status, 200);
+	assert.equal(headers["content-type"], "video/mp4");
+	assert.equal(headers["accept-ranges"], "bytes");
+	assert.equal(headers["content-length"], String(bytes.length));
+	assert.deepEqual(body, bytes);
+});
+
+test("route media: 206 range request serves the requested slice", async () => {
+	const handler = registerHarness().routes.get("/api/artifacts/media");
+	const bytes = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+	const file = join(root, "clip.webm");
+	await writeFile(file, bytes);
+	const { status, headers, body } = await invokeMedia(handler, {
+		method: "GET",
+		url: `/api/artifacts/media?path=${encodeURIComponent(file)}`,
+		headers: { range: "bytes=2-5" }
+	});
+	assert.equal(status, 206);
+	assert.equal(headers["content-range"], "bytes 2-5/10");
+	assert.equal(headers["content-length"], "4");
+	assert.deepEqual(body, bytes.subarray(2, 6));
+});
+
+test("route media: 415 for unsupported extensions", async () => {
+	const handler = registerHarness().routes.get("/api/artifacts/media");
+	const file = join(root, "blob.bin");
+	await writeFile(file, Buffer.from([0, 1]));
+	const { status } = await invokeMedia(handler, { method: "GET", url: `/api/artifacts/media?path=${encodeURIComponent(file)}` });
+	assert.equal(status, 415);
+});
+
+test("route media: 403 outside workspaces under the default scope", async () => {
+	const outside = await mkdtemp(join(tmpdir(), "dap-outside-"));
+	try {
+		const file = join(outside, "x.mp4");
+		await writeFile(file, Buffer.from([1, 2, 3]));
+		const handler = registerHarness({
+			workspaceRegistry: { list: () => [{ path: root }] }
+		}).routes.get("/api/artifacts/media");
+		const { status } = await invokeMedia(handler, { method: "GET", url: `/api/artifacts/media?path=${encodeURIComponent(file)}` });
+		assert.equal(status, 403);
+	} finally {
+		await rm(outside, { recursive: true, force: true });
+	}
+});
