@@ -9,13 +9,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
-          cache: npm
+          node-version: 22
       # Peer dependencies (@deepseek-ai/dsh-client-*, react) are provided by the
       # DSH host at runtime and are not satisfiable from the registry as declared
       # (^0.1.0-rc.6 vs published 0.0.1-rc.x), so skip auto peer installation.
+      # No `cache: npm` here because the repo ships no lockfile (peer deps are
+      # host-provided), and setup-node would otherwise fail looking for one.
       - run: npm install --legacy-peer-deps
       - run: npm test
